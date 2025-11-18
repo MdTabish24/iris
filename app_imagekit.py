@@ -86,6 +86,10 @@ def apply_canva_adjustments(img):
 
 def upload_to_imagekit(image, filename):
     try:
+        if not IMAGEKIT_PRIVATE_KEY:
+            print("ImageKit credentials missing")
+            return None
+            
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=95)
         img_bytes = buffer.getvalue()
@@ -97,7 +101,9 @@ def upload_to_imagekit(image, filename):
         )
         
         if upload and 'url' in upload:
+            print(f"Upload successful: {upload['url']}")
             return upload['url']
+        print(f"Upload failed: {upload}")
         return None
     except Exception as e:
         print(f"ImageKit upload error: {e}")
@@ -156,12 +162,16 @@ def upload():
 
 @app.route('/process', methods=['POST'])
 def process():
-    upload_path = app.config['UPLOAD_FOLDER']
-    if not os.listdir(upload_path):
-        return jsonify({'error': 'No images to process'}), 400
-    
-    processed = process_images(upload_path)
-    return jsonify({'processed': len(processed)})
+    try:
+        upload_path = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_path) or not os.listdir(upload_path):
+            return jsonify({'error': 'No images to process'}), 400
+        
+        processed = process_images(upload_path)
+        return jsonify({'processed': len(processed), 'success': True})
+    except Exception as e:
+        print(f"Process error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/gallery')
 def gallery():
