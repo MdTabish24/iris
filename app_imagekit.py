@@ -8,6 +8,9 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import io
 from imagekitio import ImageKit
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -149,7 +152,7 @@ def upload():
             filename = secure_filename(file.filename)
             file.save(os.path.join(upload_path, filename))
 
-    return jsonify({'uploaded': len(files)})
+    return jsonify({'uploaded': len(files), 'redirect': '/process-page'})
 
 @app.route('/process', methods=['POST'])
 def process():
