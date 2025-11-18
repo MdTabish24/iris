@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Images Gallery</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #000; color: white; overflow: hidden; }
+        .slideshow-container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .slide { display: none; width: 100%; height: 100%; position: relative; }
+        .slide.active { display: flex; align-items: center; justify-content: center; }
+        .slide img { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
+        .counter { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-size: 18px; }
+        .progress-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
+        .progress { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.1s linear; }
+        .controls { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
+        .btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-size: 16px; transition: all 0.3s; }
+        .btn:hover { background: rgba(255,255,255,0.3); }
+        .no-images { text-align: center; font-size: 24px; color: #ccc; }
+        @media (max-width: 768px) {
+            .counter { top: 10px; right: 10px; font-size: 16px; padding: 8px 15px; }
+            .progress-bar { width: 250px; }
+            .controls { bottom: 40px; }
+            .btn { padding: 8px 16px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="slideshow-container">
+        {% if images %}
+            <div class="counter">
+                <span id="current">1</span> / {{ images|length }}
+            </div>
+            
+            {% for image in images %}
+            <div class="slide {% if loop.first %}active{% endif %}">
+                <img src="/gallery/{{ image }}" alt="Enhanced Image {{ loop.index }}">
+            </div>
+            {% endfor %}
+            
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn" onclick="previousSlide()">◀ Previous</button>
+                <button class="btn" onclick="toggleAutoplay()" id="playBtn">⏸ Pause</button>
+                <button class="btn" onclick="nextSlide()">Next ▶</button>
+            </div>
+        {% else %}
+            <div class="no-images">
+                <p>📷 No enhanced images found</p>
+                <br>
+                <a href="/" class="btn">Upload Images</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        let autoplay = true;
+        let interval;
+        let progressInterval;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        const slideTime = 10000; // 10 seconds
+
+        function showSlide(n) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            currentSlide = (n + totalSlides) % totalSlides;
+            slides[currentSlide].classList.add('active');
+            document.getElementById('current').textContent = currentSlide + 1;
+            resetProgress();
+        }
+
+        function nextSlide() {
+            showSlide(currentSlide + 1);
+        }
+
+        function previousSlide() {
+            showSlide(currentSlide - 1);
+        }
+
+        function resetProgress() {
+            const progress = document.getElementById('progress');
+            progress.style.width = '0%';
+            clearInterval(progressInterval);
+            
+            if (autoplay && totalSlides > 1) {
+                let width = 0;
+                progressInterval = setInterval(() => {
+                    width += 100 / (slideTime / 100);
+                    progress.style.width = width + '%';
+                    if (width >= 100) {
+                        clearInterval(progressInterval);
+                    }
+                }, 100);
+            }
+        }
+
+        function startAutoplay() {
+            if (totalSlides <= 1) return;
+            interval = setInterval(nextSlide, slideTime);
+            resetProgress();
+        }
+
+        function stopAutoplay() {
+            clearInterval(interval);
+            clearInterval(progressInterval);
+            document.getElementById('progress').style.width = '0%';
+        }
+
+        function toggleAutoplay() {
+            const btn = document.getElementById('playBtn');
+            if (autoplay) {
+                autoplay = false;
+                stopAutoplay();
+                btn.textContent = '▶ Play';
+            } else {
+                autoplay = true;
+                startAutoplay();
+                btn.textContent = '⏸ Pause';
+            }
+        }
+
+        // Initialize
+        if (totalSlides > 1) {
+            startAutoplay();
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') previousSlide();
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === ' ') {
+                e.preventDefault();
+                toggleAutoplay();
+            }
+        });
+
+        // Touch controls for mobile
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) nextSlide();
+                else previousSlide();
+            }
+        });
+    </script>
+</body>
+</html>
