@@ -97,6 +97,10 @@
                     status.textContent = `✅ ${data.uploaded} images uploaded successfully!`;
                     status.style.display = 'block';
                     
+                    setTimeout(() => {
+                        window.location.href = '/process-page';
+                    }, 1500);
+                    
                     fileList.innerHTML = '';
                     selectedFiles = [];
                     uploadBtn.disabled = true;
