@@ -87,22 +87,24 @@ def apply_canva_adjustments(img):
     return result
 
 def upload_to_imagekit(image, filename):
-    buffer = None
     try:
         if not IMAGEKIT_PRIVATE_KEY:
             print("ImageKit credentials missing")
             return None
             
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=85, optimize=True)
-        buffer.seek(0)
+        image.save(buffer, format='JPEG', quality=90)
+        img_bytes = buffer.getvalue()
+        buffer.close()
+        
+        print(f"  - Image size: {len(img_bytes)} bytes")
         
         options = UploadFileRequestOptions(
             folder="/iris/"
         )
         
         result = imagekit.upload_file(
-            file=buffer,
+            file=img_bytes,
             file_name=f"enhanced_{filename}",
             options=options
         )
@@ -123,9 +125,6 @@ def upload_to_imagekit(image, filename):
         import traceback
         traceback.print_exc()
         return None
-    finally:
-        if buffer:
-            buffer.close()
 
 def process_images(input_folder):
     global image_gallery, processing_status
