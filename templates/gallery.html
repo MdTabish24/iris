@@ -35,7 +35,7 @@
             
             {% for image in images %}
             <div class="slide {% if loop.first %}active{% endif %}">
-                <img src="/gallery/{{ image }}" alt="Enhanced Image {{ loop.index }}">
+                <img src="{{ image.url }}" alt="{{ image.filename }}">
             </div>
             {% endfor %}
             

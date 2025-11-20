@@ -120,7 +120,7 @@ def upload_to_imagekit(image, filename):
         del buffer
 
 def process_images(input_folder):
-    global image_gallery
+    global image_gallery, processing_status
     image_gallery = []
     
     processed = []
@@ -138,6 +138,7 @@ def process_images(input_folder):
                 if img_url:
                     image_gallery.append({'filename': filename, 'url': img_url})
                     processed.append(filename)
+                    processing_status['processed'] = len(processed)
                     print(f"✓ {filename} processed")
                 else:
                     failed.append(filename)
@@ -179,12 +180,14 @@ def upload():
     for f in os.listdir(upload_path):
         os.remove(os.path.join(upload_path, f))
     
+    saved = 0
     for file in files:
-        if file.filename:
+        if file.filename and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp')):
             filename = secure_filename(file.filename)
             file.save(os.path.join(upload_path, filename))
+            saved += 1
 
-    return jsonify({'uploaded': len(files), 'redirect': '/process-page'})
+    return jsonify({'uploaded': saved, 'success': True})
 
 processing_status = {'status': 'idle', 'processed': 0, 'total': 0}
 

@@ -86,32 +86,30 @@
             
             uploadBtn.disabled = true;
             loader.style.display = 'block';
-            status.style.display = 'none';
+            status.className = 'status success';
+            status.textContent = '📤 Uploading images...';
+            status.style.display = 'block';
             
             try {
                 const response = await fetch('/upload', { method: 'POST', body: formData });
                 const data = await response.json();
                 
-                if (response.ok) {
-                    status.className = 'status success';
-                    status.textContent = `✅ ${data.processed} images processed successfully!`;
-                    status.style.display = 'block';
+                if (response.ok && data.success) {
+                    status.textContent = `✅ ${data.uploaded} images uploaded. Starting processing...`;
                     
                     // Auto process images after upload
-                    processImages();
+                    await processImages();
                     
                     fileList.innerHTML = '';
                     selectedFiles = [];
-                    uploadBtn.disabled = true;
                 } else {
-                    throw new Error(data.error);
+                    throw new Error(data.error || 'Upload failed');
                 }
             } catch (error) {
                 status.className = 'status error';
                 status.textContent = `❌ Error: ${error.message}`;
                 status.style.display = 'block';
                 uploadBtn.disabled = false;
-            } finally {
                 loader.style.display = 'none';
             }
         });
