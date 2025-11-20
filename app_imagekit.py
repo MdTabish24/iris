@@ -102,10 +102,10 @@ def upload_to_imagekit(image, filename):
         buffer.close()
         
         if len(img_bytes) < 1000:
-            print(f"✗ Image too small: {len(img_bytes)} bytes - likely corrupt")
+            print(f"✗ Image too small: {len(img_bytes)} bytes - likely corrupt", flush=True)
             return None
         
-        print(f"  - Valid image: {len(img_bytes)} bytes")
+        print(f"  - Valid image: {len(img_bytes)} bytes", flush=True)
         
         options = UploadFileRequestOptions(
             folder="/iris/"
@@ -118,18 +118,18 @@ def upload_to_imagekit(image, filename):
         )
         
         if result and hasattr(result, 'url'):
-            print(f"✓ Upload successful: {result.url}")
+            print(f"✓ Upload successful: {result.url}", flush=True)
             return result.url
         elif result and hasattr(result, 'response_metadata'):
             url = result.response_metadata.raw.get('url')
             if url:
-                print(f"✓ Upload successful: {url}")
+                print(f"✓ Upload successful: {url}", flush=True)
                 return url
         
-        print(f"✗ Upload failed: {result}")
+        print(f"✗ Upload failed: {result}", flush=True)
         return None
     except Exception as e:
-        print(f"✗ ImageKit error: {e}")
+        print(f"✗ ImageKit error: {e}", flush=True)
         import traceback
         traceback.print_exc()
         return None
@@ -138,31 +138,31 @@ def process_images(input_folder):
     global image_gallery, processing_status
     image_gallery = []
     
-    print(f"\n=== Starting to process images from: {input_folder} ===")
+    print(f"\n=== Starting to process images from: {input_folder} ===", flush=True)
     processed = []
     failed = []
     
     files = [f for f in os.listdir(input_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp'))]
-    print(f"Found {len(files)} image files: {files}")
+    print(f"Found {len(files)} image files: {files}", flush=True)
     
     for filename in files:
         img = None
         try:
-            print(f"\n[{len(processed)+1}/{len(files)}] Processing {filename}...")
+            print(f"\n[{len(processed)+1}/{len(files)}] Processing {filename}...", flush=True)
             img_path = os.path.join(input_folder, filename)
             img = Image.open(img_path).convert('RGB')
-            print(f"  - Image loaded: {img.size}, mode: {img.mode}")
+            print(f"  - Image loaded: {img.size}, mode: {img.mode}", flush=True)
             
             if img.size[0] == 0 or img.size[1] == 0:
-                print(f"  ✗ Invalid image size")
+                print(f"  ✗ Invalid image size", flush=True)
                 failed.append(filename)
                 continue
             
             img = apply_canva_adjustments(img)
-            print(f"  - Adjustments applied: {img.size}, mode: {img.mode}")
+            print(f"  - Adjustments applied: {img.size}, mode: {img.mode}", flush=True)
             
             if not img or img.size[0] == 0:
-                print(f"  ✗ Image corrupted after adjustments")
+                print(f"  ✗ Image corrupted after adjustments", flush=True)
                 failed.append(filename)
                 continue
             
@@ -171,10 +171,10 @@ def process_images(input_folder):
                 image_gallery.append({'filename': filename, 'url': img_url})
                 processed.append(filename)
                 processing_status['processed'] = len(processed)
-                print(f"  ✓ SUCCESS: {filename} -> {img_url}")
+                print(f"  ✓ SUCCESS: {filename} -> {img_url}", flush=True)
             else:
                 failed.append(filename)
-                print(f"  ✗ FAILED: {filename} upload returned None")
+                print(f"  ✗ FAILED: {filename} upload returned None", flush=True)
                 
         except Exception as e:
             failed.append(filename)
@@ -188,11 +188,11 @@ def process_images(input_folder):
             import gc
             gc.collect()
     
-    print(f"\n=== FINAL RESULTS ===")
-    print(f"Processed: {len(processed)}")
-    print(f"Failed: {len(failed)}")
-    print(f"Gallery has {len(image_gallery)} images")
-    print(f"Gallery contents: {image_gallery}")
+    print(f"\n=== FINAL RESULTS ===", flush=True)
+    print(f"Processed: {len(processed)}", flush=True)
+    print(f"Failed: {len(failed)}", flush=True)
+    print(f"Gallery has {len(image_gallery)} images", flush=True)
+    print(f"Gallery contents: {image_gallery}", flush=True)
     return processed
 
 @app.route('/')
