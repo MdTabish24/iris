@@ -94,67 +94,80 @@ def upload_to_imagekit(image, filename):
             
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=85, optimize=True)
-        img_bytes = buffer.getvalue()
+        buffer.seek(0)
         
-        upload = imagekit.upload_file(
-            file=img_bytes,
+        result = imagekit.upload_file(
+            file=buffer,
             file_name=f"enhanced_{filename}",
-            options={"folder": "/iris/"},
-            timeout=30
+            options={"folder": "/iris/"}
         )
         
-        if upload and hasattr(upload, 'url'):
-            print(f"Upload successful: {upload.url}")
-            return upload.url
-        elif upload and isinstance(upload, dict) and 'url' in upload:
-            print(f"Upload successful: {upload['url']}")
-            return upload['url']
-        print(f"Upload failed: {upload}")
+        if result and hasattr(result, 'response_metadata'):
+            url = result.response_metadata.raw.get('url')
+            if url:
+                print(f"✓ Upload successful: {url}")
+                return url
+        
+        print(f"✗ Upload failed: {result}")
         return None
     except Exception as e:
-        print(f"ImageKit upload error: {e}")
+        print(f"✗ ImageKit error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
     finally:
         if buffer:
             buffer.close()
-        del buffer
 
 def process_images(input_folder):
     global image_gallery, processing_status
     image_gallery = []
     
+    print(f"\n=== Starting to process images from: {input_folder} ===")
     processed = []
     failed = []
-    for filename in os.listdir(input_folder):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp')):
-            img = None
-            try:
-                print(f"Processing {filename}...")
-                img_path = os.path.join(input_folder, filename)
-                img = Image.open(img_path).convert('RGB')
-                img = apply_canva_adjustments(img)
-                
-                img_url = upload_to_imagekit(img, filename)
-                if img_url:
-                    image_gallery.append({'filename': filename, 'url': img_url})
-                    processed.append(filename)
-                    processing_status['processed'] = len(processed)
-                    print(f"✓ {filename} processed")
-                else:
-                    failed.append(filename)
-                    print(f"✗ {filename} upload failed")
-                    
-            except Exception as e:
-                failed.append(filename)
-                print(f"Error processing {filename}: {e}")
-            finally:
-                if img:
-                    img.close()
-                del img
-                import gc
-                gc.collect()
     
-    print(f"Processed: {len(processed)}, Failed: {len(failed)}")
+    files = [f for f in os.listdir(input_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp'))]
+    print(f"Found {len(files)} image files: {files}")
+    
+    for filename in files:
+        img = None
+        try:
+            print(f"\n[{len(processed)+1}/{len(files)}] Processing {filename}...")
+            img_path = os.path.join(input_folder, filename)
+            img = Image.open(img_path).convert('RGB')
+            print(f"  - Image loaded: {img.size}")
+            
+            img = apply_canva_adjustments(img)
+            print(f"  - Adjustments applied")
+            
+            img_url = upload_to_imagekit(img, filename)
+            if img_url:
+                image_gallery.append({'filename': filename, 'url': img_url})
+                processed.append(filename)
+                processing_status['processed'] = len(processed)
+                print(f"  ✓ SUCCESS: {filename} -> {img_url}")
+            else:
+                failed.append(filename)
+                print(f"  ✗ FAILED: {filename} upload returned None")
+                
+        except Exception as e:
+            failed.append(filename)
+            print(f"  ✗ ERROR processing {filename}: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            if img:
+                img.close()
+            del img
+            import gc
+            gc.collect()
+    
+    print(f"\n=== FINAL RESULTS ===")
+    print(f"Processed: {len(processed)}")
+    print(f"Failed: {len(failed)}")
+    print(f"Gallery has {len(image_gallery)} images")
+    print(f"Gallery contents: {image_gallery}")
     return processed
 
 @app.route('/')
@@ -248,6 +261,9 @@ def status():
 
 @app.route('/gallery')
 def gallery():
+    print(f"\n=== GALLERY ROUTE CALLED ===")
+    print(f"image_gallery has {len(image_gallery)} images")
+    print(f"Gallery contents: {image_gallery}")
     return render_template('gallery.html', images=image_gallery)
 
 if __name__ == '__main__':
