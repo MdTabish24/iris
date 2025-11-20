@@ -120,23 +120,31 @@
             try {
                 status.className = 'status success';
                 status.textContent = '🎨 Processing images...';
+                status.style.display = 'block';
                 loader.style.display = 'block';
                 
                 const response = await fetch('/process', { method: 'POST' });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Processing failed');
+                }
+                
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (data.success) {
                     status.textContent = `✅ ${data.processed} images enhanced successfully!`;
                     
                     setTimeout(() => {
                         window.location.href = '/gallery';
                     }, 2000);
                 } else {
-                    throw new Error(data.error);
+                    throw new Error(data.error || 'Unknown error');
                 }
             } catch (error) {
                 status.className = 'status error';
                 status.textContent = `❌ Processing Error: ${error.message}`;
+                status.style.display = 'block';
             } finally {
                 loader.style.display = 'none';
             }

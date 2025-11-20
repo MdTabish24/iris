@@ -165,13 +165,13 @@ def process():
     try:
         upload_path = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_path) or not os.listdir(upload_path):
-            return jsonify({'error': 'No images to process'}), 400
+            return jsonify({'error': 'No images to process', 'success': False}), 400
         
         processed = process_images(upload_path)
-        return jsonify({'processed': len(processed), 'success': True})
+        return jsonify({'processed': len(processed), 'success': True}), 200
     except Exception as e:
         print(f"Process error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'success': False}), 500
 
 @app.route('/gallery')
 def gallery():
