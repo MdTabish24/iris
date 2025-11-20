@@ -1,16 +1,14 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, jsonify
 import os
 from PIL import Image, ImageEnhance, ImageFilter
-import zipfile
 from werkzeug.utils import secure_filename
-import shutil
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import io
 import requests
-import base64
 from dotenv import load_dotenv
 import threading
+import gc
 
 load_dotenv()
 
@@ -149,8 +147,6 @@ def upload_to_imagekit(image, filename):
         
     except Exception as e:
         print(f"✗ ImageKit error: {type(e).__name__}: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
         return None
 
 def process_images(input_folder):
@@ -185,12 +181,6 @@ def process_images(input_folder):
                 failed.append(filename)
                 continue
             
-            # Test save locally
-            test_path = f"test_{filename}"
-            img.save(test_path, format='JPEG', quality=90)
-            test_size = os.path.getsize(test_path)
-            print(f"  - Test save: {test_size} bytes at {test_path}", flush=True)
-            
             img_url = upload_to_imagekit(img, filename)
             if img_url:
                 image_gallery.append({'filename': filename, 'url': img_url})
@@ -203,14 +193,11 @@ def process_images(input_folder):
                 
         except Exception as e:
             failed.append(filename)
-            print(f"  ✗ ERROR processing {filename}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"  ✗ ERROR processing {filename}: {e}", flush=True)
         finally:
             if img:
                 img.close()
             del img
-            import gc
             gc.collect()
     
     print(f"\n=== FINAL RESULTS ===", flush=True)
@@ -274,9 +261,8 @@ def background_process(upload_path):
     except Exception as e:
         processing_status['status'] = 'failed'
         processing_status['error'] = str(e)
-        print(f"Background process error: {e}")
+        print(f"Background process error: {e}", flush=True)
     finally:
-        import gc
         gc.collect()
 
 @app.route('/process', methods=['POST'])
