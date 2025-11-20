@@ -53,27 +53,45 @@ def apply_clarity(img, amount=42):
     return Image.fromarray(enhanced.astype(np.uint8))
 
 def apply_canva_adjustments(img):
-    max_size = 1920
-    if img.size[0] > max_size or img.size[1] > max_size:
-        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+    # Upscale if needed
+    if img.size[0] < 1920 or img.size[1] < 1920:
+        scale_factor = max(1920 / img.size[0], 1920 / img.size[1])
+        new_size = (int(img.size[0] * scale_factor), int(img.size[1] * scale_factor))
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
 
+    # Contrast: -67
     contrast = ImageEnhance.Contrast(img)
-    img = contrast.enhance(0.665)
+    img = contrast.enhance(1.0 - (67/200))
+
+    # Brightness: 85
     brightness = ImageEnhance.Brightness(img)
-    img = brightness.enhance(1.425)
+    img = brightness.enhance(1.0 + (85/200))
+
+    # Shadows: 30, Highlights: 11
     img = adjust_shadows_highlights(img, shadows=30, highlights=11)
+
+    # Clarity: 42 (boosted to 65 for iris)
     img = apply_clarity(img, amount=65)
+
+    # Sharpness: 72 (enhanced to 2.2)
     sharpness = ImageEnhance.Sharpness(img)
     img = sharpness.enhance(2.2)
+    
+    # Edge enhancement
     img = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    
+    # Final sharpening
     img = img.filter(ImageFilter.UnsharpMask(radius=1.5, percent=180, threshold=2))
     
+    # Belvedere filter (Desaturate + Purple overlay)
     color = ImageEnhance.Color(img)
     img = color.enhance(0.2)
+    
     arr = np.array(img, dtype=np.float32)
-    arr[:,:,0] = np.minimum(arr[:,:,0] + 50, 255)
-    arr[:,:,1] = arr[:,:,1] * 0.85
-    arr[:,:,2] = np.minimum(arr[:,:,2] + 70, 255)
+    arr[:,:,0] = np.minimum(arr[:,:,0] + 50, 255)  # Red boost
+    arr[:,:,1] = arr[:,:,1] * 0.85  # Green reduce
+    arr[:,:,2] = np.minimum(arr[:,:,2] + 70, 255)  # Blue boost
+    
     arr = np.clip(arr, 0, 255)
     result = Image.fromarray(arr.astype(np.uint8))
     del arr
