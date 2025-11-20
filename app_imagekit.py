@@ -89,17 +89,19 @@ def apply_canva_adjustments(img):
 def upload_to_imagekit(image, filename):
     try:
         if not IMAGEKIT_PRIVATE_KEY:
-            print("ImageKit credentials missing")
+            print("ImageKit credentials missing", flush=True)
             return None
         
         if not image or image.size[0] == 0 or image.size[1] == 0:
-            print(f"✗ Invalid image: {image}")
+            print(f"✗ Invalid image: {image}", flush=True)
             return None
-            
+        
+        print(f"  - Creating buffer for {filename}...", flush=True)
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=90)
         img_bytes = buffer.getvalue()
         buffer.close()
+        print(f"  - Buffer created: {len(img_bytes)} bytes", flush=True)
         
         if len(img_bytes) < 1000:
             print(f"✗ Image too small: {len(img_bytes)} bytes - likely corrupt", flush=True)
@@ -111,25 +113,30 @@ def upload_to_imagekit(image, filename):
             folder="/iris/"
         )
         
+        print(f"  - Uploading to ImageKit...", flush=True)
         result = imagekit.upload_file(
             file=img_bytes,
             file_name=f"enhanced_{filename}",
             options=options
         )
+        print(f"  - Upload result type: {type(result)}", flush=True)
+        print(f"  - Upload result: {result}", flush=True)
         
-        if result and hasattr(result, 'url'):
-            print(f"✓ Upload successful: {result.url}", flush=True)
-            return result.url
-        elif result and hasattr(result, 'response_metadata'):
-            url = result.response_metadata.raw.get('url')
-            if url:
-                print(f"✓ Upload successful: {url}", flush=True)
-                return url
+        if result:
+            print(f"  - Result attributes: {dir(result)}", flush=True)
+            if hasattr(result, 'url'):
+                print(f"✓ Upload successful: {result.url}", flush=True)
+                return result.url
+            elif hasattr(result, 'response_metadata'):
+                url = result.response_metadata.raw.get('url')
+                if url:
+                    print(f"✓ Upload successful: {url}", flush=True)
+                    return url
         
-        print(f"✗ Upload failed: {result}", flush=True)
+        print(f"✗ Upload failed - no URL found", flush=True)
         return None
     except Exception as e:
-        print(f"✗ ImageKit error: {e}", flush=True)
+        print(f"✗ ImageKit error: {type(e).__name__}: {e}", flush=True)
         import traceback
         traceback.print_exc()
         return None
@@ -165,6 +172,12 @@ def process_images(input_folder):
                 print(f"  ✗ Image corrupted after adjustments", flush=True)
                 failed.append(filename)
                 continue
+            
+            # Test save locally
+            test_path = f"test_{filename}"
+            img.save(test_path, format='JPEG', quality=90)
+            test_size = os.path.getsize(test_path)
+            print(f"  - Test save: {test_size} bytes at {test_path}", flush=True)
             
             img_url = upload_to_imagekit(img, filename)
             if img_url:
