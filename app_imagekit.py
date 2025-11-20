@@ -97,10 +97,14 @@ def upload_to_imagekit(image, filename):
         upload = imagekit.upload_file(
             file=img_bytes,
             file_name=f"enhanced_{filename}",
-            options={"folder": "/iris/"}
+            options={"folder": "/iris/"},
+            timeout=30
         )
         
-        if upload and 'url' in upload:
+        if upload and hasattr(upload, 'url'):
+            print(f"Upload successful: {upload.url}")
+            return upload.url
+        elif upload and isinstance(upload, dict) and 'url' in upload:
             print(f"Upload successful: {upload['url']}")
             return upload['url']
         print(f"Upload failed: {upload}")
@@ -114,9 +118,11 @@ def process_images(input_folder):
     image_gallery = []
     
     processed = []
+    failed = []
     for filename in os.listdir(input_folder):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp')):
             try:
+                print(f"Processing {filename}...")
                 img_path = os.path.join(input_folder, filename)
                 img = Image.open(img_path).convert('RGB')
                 img = apply_canva_adjustments(img)
@@ -125,9 +131,16 @@ def process_images(input_folder):
                 if img_url:
                     image_gallery.append({'filename': filename, 'url': img_url})
                     processed.append(filename)
+                    print(f"✓ {filename} processed")
+                else:
+                    failed.append(filename)
+                    print(f"✗ {filename} upload failed")
                     
             except Exception as e:
+                failed.append(filename)
                 print(f"Error processing {filename}: {e}")
+    
+    print(f"Processed: {len(processed)}, Failed: {len(failed)}")
     return processed
 
 @app.route('/')
@@ -163,15 +176,29 @@ def upload():
 @app.route('/process', methods=['POST'])
 def process():
     try:
+        print("=== Starting image processing ===")
         upload_path = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(upload_path) or not os.listdir(upload_path):
+        
+        if not os.path.exists(upload_path):
+            print(f"Upload path does not exist: {upload_path}")
+            return jsonify({'error': 'Upload folder not found', 'success': False}), 400
+            
+        files = os.listdir(upload_path)
+        if not files:
+            print("No files in upload folder")
             return jsonify({'error': 'No images to process', 'success': False}), 400
         
+        print(f"Found {len(files)} files to process")
         processed = process_images(upload_path)
+        
+        print(f"=== Processing complete: {len(processed)} images ===")
         return jsonify({'processed': len(processed), 'success': True}), 200
+        
     except Exception as e:
-        print(f"Process error: {e}")
-        return jsonify({'error': str(e), 'success': False}), 500
+        print(f"Process error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'{type(e).__name__}: {str(e)}', 'success': False}), 500
 
 @app.route('/gallery')
 def gallery():
