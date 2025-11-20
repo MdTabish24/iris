@@ -119,7 +119,7 @@
         async function processImages() {
             try {
                 status.className = 'status success';
-                status.textContent = '🎨 Processing images...';
+                status.textContent = '🎨 Starting processing...';
                 status.style.display = 'block';
                 loader.style.display = 'block';
                 
@@ -133,11 +133,8 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    status.textContent = `✅ ${data.processed} images enhanced successfully!`;
-                    
-                    setTimeout(() => {
-                        window.location.href = '/gallery';
-                    }, 2000);
+                    status.textContent = `🎨 Processing ${data.total} images...`;
+                    checkStatus();
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
@@ -145,7 +142,31 @@
                 status.className = 'status error';
                 status.textContent = `❌ Processing Error: ${error.message}`;
                 status.style.display = 'block';
-            } finally {
+                loader.style.display = 'none';
+            }
+        }
+        
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                
+                if (data.status === 'processing' || data.status === 'starting') {
+                    status.textContent = `🎨 Processing... (${data.processed}/${data.total})`;
+                    setTimeout(checkStatus, 1000);
+                } else if (data.status === 'completed') {
+                    status.textContent = `✅ ${data.processed} images enhanced successfully!`;
+                    loader.style.display = 'none';
+                    setTimeout(() => {
+                        window.location.href = '/gallery';
+                    }, 2000);
+                } else if (data.status === 'failed') {
+                    throw new Error(data.error || 'Processing failed');
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.textContent = `❌ Error: ${error.message}`;
+                status.style.display = 'block';
                 loader.style.display = 'none';
             }
         }

@@ -9,6 +9,7 @@ from scipy.ndimage import gaussian_filter
 import io
 from imagekitio import ImageKit
 from dotenv import load_dotenv
+import threading
 
 load_dotenv()
 
@@ -57,10 +58,9 @@ def apply_clarity(img, amount=42):
     return Image.fromarray(enhanced.astype(np.uint8))
 
 def apply_canva_adjustments(img):
-    if img.size[0] < 1920 or img.size[1] < 1920:
-        scale_factor = max(1920 / img.size[0], 1920 / img.size[1])
-        new_size = (int(img.size[0] * scale_factor), int(img.size[1] * scale_factor))
-        img = img.resize(new_size, Image.Resampling.LANCZOS)
+    max_size = 1920
+    if img.size[0] > max_size or img.size[1] > max_size:
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
     contrast = ImageEnhance.Contrast(img)
     img = contrast.enhance(0.665)
@@ -80,18 +80,20 @@ def apply_canva_adjustments(img):
     arr[:,:,1] = arr[:,:,1] * 0.85
     arr[:,:,2] = np.minimum(arr[:,:,2] + 70, 255)
     arr = np.clip(arr, 0, 255)
-    img = Image.fromarray(arr.astype(np.uint8))
+    result = Image.fromarray(arr.astype(np.uint8))
+    del arr
     
-    return img
+    return result
 
 def upload_to_imagekit(image, filename):
+    buffer = None
     try:
         if not IMAGEKIT_PRIVATE_KEY:
             print("ImageKit credentials missing")
             return None
             
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=95)
+        image.save(buffer, format='JPEG', quality=85, optimize=True)
         img_bytes = buffer.getvalue()
         
         upload = imagekit.upload_file(
@@ -112,6 +114,10 @@ def upload_to_imagekit(image, filename):
     except Exception as e:
         print(f"ImageKit upload error: {e}")
         return None
+    finally:
+        if buffer:
+            buffer.close()
+        del buffer
 
 def process_images(input_folder):
     global image_gallery
@@ -121,6 +127,7 @@ def process_images(input_folder):
     failed = []
     for filename in os.listdir(input_folder):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp')):
+            img = None
             try:
                 print(f"Processing {filename}...")
                 img_path = os.path.join(input_folder, filename)
@@ -139,6 +146,12 @@ def process_images(input_folder):
             except Exception as e:
                 failed.append(filename)
                 print(f"Error processing {filename}: {e}")
+            finally:
+                if img:
+                    img.close()
+                del img
+                import gc
+                gc.collect()
     
     print(f"Processed: {len(processed)}, Failed: {len(failed)}")
     return processed
@@ -173,6 +186,33 @@ def upload():
 
     return jsonify({'uploaded': len(files), 'redirect': '/process-page'})
 
+processing_status = {'status': 'idle', 'processed': 0, 'total': 0}
+
+def background_process(upload_path):
+    global processing_status
+    try:
+        processing_status['status'] = 'processing'
+        processed = process_images(upload_path)
+        processing_status['processed'] = len(processed)
+        processing_status['status'] = 'completed'
+        print(f"=== Processing complete: {len(processed)} images ===")
+        
+        # Clean up uploads folder
+        for f in os.listdir(upload_path):
+            try:
+                os.remove(os.path.join(upload_path, f))
+            except:
+                pass
+        print("Uploads folder cleaned")
+        
+    except Exception as e:
+        processing_status['status'] = 'failed'
+        processing_status['error'] = str(e)
+        print(f"Background process error: {e}")
+    finally:
+        import gc
+        gc.collect()
+
 @app.route('/process', methods=['POST'])
 def process():
     try:
@@ -180,25 +220,28 @@ def process():
         upload_path = app.config['UPLOAD_FOLDER']
         
         if not os.path.exists(upload_path):
-            print(f"Upload path does not exist: {upload_path}")
             return jsonify({'error': 'Upload folder not found', 'success': False}), 400
             
-        files = os.listdir(upload_path)
+        files = [f for f in os.listdir(upload_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp'))]
         if not files:
-            print("No files in upload folder")
             return jsonify({'error': 'No images to process', 'success': False}), 400
         
-        print(f"Found {len(files)} files to process")
-        processed = process_images(upload_path)
+        processing_status['total'] = len(files)
+        processing_status['status'] = 'starting'
         
-        print(f"=== Processing complete: {len(processed)} images ===")
-        return jsonify({'processed': len(processed), 'success': True}), 200
+        thread = threading.Thread(target=background_process, args=(upload_path,))
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'success': True, 'message': 'Processing started', 'total': len(files)}), 200
         
     except Exception as e:
-        print(f"Process error: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'{type(e).__name__}: {str(e)}', 'success': False}), 500
+        print(f"Process error: {e}")
+        return jsonify({'error': str(e), 'success': False}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    return jsonify(processing_status), 200
 
 @app.route('/gallery')
 def gallery():
