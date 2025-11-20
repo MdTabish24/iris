@@ -91,13 +91,21 @@ def upload_to_imagekit(image, filename):
         if not IMAGEKIT_PRIVATE_KEY:
             print("ImageKit credentials missing")
             return None
+        
+        if not image or image.size[0] == 0 or image.size[1] == 0:
+            print(f"✗ Invalid image: {image}")
+            return None
             
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=90)
         img_bytes = buffer.getvalue()
         buffer.close()
         
-        print(f"  - Image size: {len(img_bytes)} bytes")
+        if len(img_bytes) < 1000:
+            print(f"✗ Image too small: {len(img_bytes)} bytes - likely corrupt")
+            return None
+        
+        print(f"  - Valid image: {len(img_bytes)} bytes")
         
         options = UploadFileRequestOptions(
             folder="/iris/"
@@ -143,10 +151,20 @@ def process_images(input_folder):
             print(f"\n[{len(processed)+1}/{len(files)}] Processing {filename}...")
             img_path = os.path.join(input_folder, filename)
             img = Image.open(img_path).convert('RGB')
-            print(f"  - Image loaded: {img.size}")
+            print(f"  - Image loaded: {img.size}, mode: {img.mode}")
+            
+            if img.size[0] == 0 or img.size[1] == 0:
+                print(f"  ✗ Invalid image size")
+                failed.append(filename)
+                continue
             
             img = apply_canva_adjustments(img)
-            print(f"  - Adjustments applied")
+            print(f"  - Adjustments applied: {img.size}, mode: {img.mode}")
+            
+            if not img or img.size[0] == 0:
+                print(f"  ✗ Image corrupted after adjustments")
+                failed.append(filename)
+                continue
             
             img_url = upload_to_imagekit(img, filename)
             if img_url:
