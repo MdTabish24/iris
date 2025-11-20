@@ -7,8 +7,8 @@ import shutil
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import io
-from imagekitio import ImageKit
-from imagekitio.models.UploadFileRequestOptions import UploadFileRequestOptions
+import requests
+import base64
 from dotenv import load_dotenv
 import threading
 
@@ -22,12 +22,6 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 IMAGEKIT_PRIVATE_KEY = os.getenv('IMAGEKIT_PRIVATE_KEY')
 IMAGEKIT_PUBLIC_KEY = os.getenv('IMAGEKIT_PUBLIC_KEY')
 IMAGEKIT_URL_ENDPOINT = os.getenv('IMAGEKIT_URL_ENDPOINT')
-
-imagekit = ImageKit(
-    private_key=IMAGEKIT_PRIVATE_KEY,
-    public_key=IMAGEKIT_PUBLIC_KEY,
-    url_endpoint=IMAGEKIT_URL_ENDPOINT
-)
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -96,45 +90,45 @@ def upload_to_imagekit(image, filename):
             print(f"✗ Invalid image: {image}", flush=True)
             return None
         
-        print(f"  - Creating buffer for {filename}...", flush=True)
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=90)
         img_bytes = buffer.getvalue()
         buffer.close()
-        print(f"  - Buffer created: {len(img_bytes)} bytes", flush=True)
         
         if len(img_bytes) < 1000:
-            print(f"✗ Image too small: {len(img_bytes)} bytes - likely corrupt", flush=True)
+            print(f"✗ Image too small: {len(img_bytes)} bytes", flush=True)
             return None
         
-        print(f"  - Valid image: {len(img_bytes)} bytes", flush=True)
+        print(f"  - Uploading {len(img_bytes)} bytes to ImageKit...", flush=True)
         
-        options = UploadFileRequestOptions(
-            folder="/iris/"
-        )
+        # Direct API call
+        url = "https://upload.imagekit.io/api/v1/files/upload"
         
-        print(f"  - Uploading to ImageKit...", flush=True)
-        result = imagekit.upload_file(
-            file=img_bytes,
-            file_name=f"enhanced_{filename}",
-            options=options
-        )
-        print(f"  - Upload result type: {type(result)}", flush=True)
-        print(f"  - Upload result: {result}", flush=True)
+        files = {
+            'file': (f"enhanced_{filename}", img_bytes, 'image/jpeg')
+        }
         
-        if result:
-            print(f"  - Result attributes: {dir(result)}", flush=True)
-            if hasattr(result, 'url'):
-                print(f"✓ Upload successful: {result.url}", flush=True)
-                return result.url
-            elif hasattr(result, 'response_metadata'):
-                url = result.response_metadata.raw.get('url')
-                if url:
-                    print(f"✓ Upload successful: {url}", flush=True)
-                    return url
+        data = {
+            'fileName': f"enhanced_{filename}",
+            'folder': '/iris/'
+        }
         
-        print(f"✗ Upload failed - no URL found", flush=True)
+        auth = (IMAGEKIT_PRIVATE_KEY + ':', '')
+        
+        response = requests.post(url, files=files, data=data, auth=auth)
+        
+        print(f"  - Response status: {response.status_code}", flush=True)
+        
+        if response.status_code == 200:
+            result = response.json()
+            img_url = result.get('url')
+            if img_url:
+                print(f"✓ Upload successful: {img_url}", flush=True)
+                return img_url
+        
+        print(f"✗ Upload failed: {response.text}", flush=True)
         return None
+        
     except Exception as e:
         print(f"✗ ImageKit error: {type(e).__name__}: {e}", flush=True)
         import traceback
