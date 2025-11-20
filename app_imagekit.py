@@ -8,6 +8,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import io
 from imagekitio import ImageKit
+from imagekitio.models.UploadFileRequestOptions import UploadFileRequestOptions
 from dotenv import load_dotenv
 import threading
 
@@ -96,13 +97,20 @@ def upload_to_imagekit(image, filename):
         image.save(buffer, format='JPEG', quality=85, optimize=True)
         buffer.seek(0)
         
+        options = UploadFileRequestOptions(
+            folder="/iris/"
+        )
+        
         result = imagekit.upload_file(
             file=buffer,
             file_name=f"enhanced_{filename}",
-            options={"folder": "/iris/"}
+            options=options
         )
         
-        if result and hasattr(result, 'response_metadata'):
+        if result and hasattr(result, 'url'):
+            print(f"✓ Upload successful: {result.url}")
+            return result.url
+        elif result and hasattr(result, 'response_metadata'):
             url = result.response_metadata.raw.get('url')
             if url:
                 print(f"✓ Upload successful: {url}")
