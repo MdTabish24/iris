@@ -131,7 +131,7 @@ def upload_to_imagekit(image, filename):
         
         auth = (IMAGEKIT_PRIVATE_KEY + ':', '')
         
-        response = requests.post(url, files=files, data=data, auth=auth)
+        response = requests.post(url, files=files, data=data, auth=auth, timeout=30)
         
         print(f"  - Response status: {response.status_code}", flush=True)
         
@@ -145,6 +145,9 @@ def upload_to_imagekit(image, filename):
         print(f"✗ Upload failed: {response.text}", flush=True)
         return None
         
+    except requests.exceptions.Timeout:
+        print(f"✗ ImageKit timeout after 30s", flush=True)
+        return None
     except Exception as e:
         print(f"✗ ImageKit error: {type(e).__name__}: {e}", flush=True)
         return None
@@ -293,7 +296,14 @@ def process():
 
 @app.route('/status', methods=['GET'])
 def status():
-    return jsonify(processing_status), 200
+    try:
+        return jsonify(processing_status), 200
+    except:
+        return jsonify({'status': 'idle', 'processed': 0, 'total': 0}), 200
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/gallery')
 def gallery():
