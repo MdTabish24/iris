@@ -106,6 +106,10 @@
     </div>
 
     <script>
+        // Store original image data - DECLARE FIRST
+        let originalImages = {};
+        let canvasCache = {};
+        
         let currentSlide = 0;
         let autoplay = true;
         let interval;
@@ -176,7 +180,6 @@
         if (totalSlides > 1) {
             startAutoplay();
         }
-        applyFilters();
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -202,10 +205,6 @@
                 else previousSlide();
             }
         });
-        
-        // Store original image data
-        let originalImages = {};
-        let canvasCache = {};
         
         // Image adjustment functions
         function applyFilters() {
