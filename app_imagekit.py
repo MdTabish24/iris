@@ -76,31 +76,28 @@ def apply_canva_adjustments(img):
 
     # STEP 1: INCREASE Contrast (reversed from -67 to strong boost)
     contrast = ImageEnhance.Contrast(img)
-    img = contrast.enhance(1.8)  # Strong contrast for dark, rich look
+    img = contrast.enhance(1.0 - (2/200))  # Strong contrast for dark, rich look
 
     # STEP 2: REDUCE Brightness (reversed from +85 to darker)
     brightness = ImageEnhance.Brightness(img)
-    img = brightness.enhance(0.85)  # Slightly darker overall
-
+    img = brightness.enhance(1.425)  # Slightly darker overall
     # STEP 3: Enhanced Shadows & Reduced Highlights
-    img = adjust_shadows_highlights(img, shadows=50, highlights=5)
+    img = adjust_shadows_highlights(img, shadows=30, highlights=10)
 
     # STEP 4: High Clarity for detail
-    img = apply_clarity(img, amount=60)
+    img = apply_clarity(img, amount=63)
 
     # STEP 5: Strong Sharpness
     sharpness = ImageEnhance.Sharpness(img)
-    img = sharpness.enhance(2.5)
+    img = sharpness.enhance(2)
 
     # STEP 6: Edge enhancement
     img = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
 
-    # STEP 7: Strong unsharp mask
-    img = img.filter(ImageFilter.UnsharpMask(radius=2.0, percent=200, threshold=1))
 
     # STEP 8: Keep more saturation (0.7 instead of 0.2)
     color = ImageEnhance.Color(img)
-    img = color.enhance(0.7)
+    img = color.enhance(0.2)
 
     # STEP 9: Apply strong purple/violet overlay
     arr = np.array(img, dtype=np.float32)
