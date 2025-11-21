@@ -85,14 +85,12 @@ def apply_canva_adjustments(img):
     img = adjust_shadows_highlights(img, shadows=30, highlights=10)
 
     # STEP 4: High Clarity for detail
-    img = apply_clarity(img, amount=63)
+    img = apply_clarity(img, amount=30)
 
     # STEP 5: Strong Sharpness
     sharpness = ImageEnhance.Sharpness(img)
-    img = sharpness.enhance(2)
+    img = sharpness.enhance(1.5)
 
-    # STEP 6: Edge enhancement
-    img = img.filter(ImageFilter.EDGE_ENHANCE_MORE)
 
 
     # STEP 8: Keep more saturation (0.7 instead of 0.2)
