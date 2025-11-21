@@ -76,16 +76,16 @@ def apply_canva_adjustments(img):
 
     # STEP 1: INCREASE Contrast (reversed from -67 to strong boost)
     contrast = ImageEnhance.Contrast(img)
-    img = contrast.enhance(1.0 - (2/200))  # Strong contrast for dark, rich look
+    img = contrast.enhance(1.0 - (30/200))  # Strong contrast for dark, rich look
 
     # STEP 2: REDUCE Brightness (reversed from +85 to darker)
     brightness = ImageEnhance.Brightness(img)
-    img = brightness.enhance(1.425)  # Slightly darker overall
+    img = brightness.enhance(0.90)  # Slightly darker overall
     # STEP 3: Enhanced Shadows & Reduced Highlights
     img = adjust_shadows_highlights(img, shadows=30, highlights=10)
 
     # STEP 4: High Clarity for detail
-    img = apply_clarity(img, amount=30)
+    img = apply_clarity(img, amount=45)
 
     # STEP 5: Strong Sharpness
     sharpness = ImageEnhance.Sharpness(img)
@@ -110,7 +110,7 @@ def apply_canva_adjustments(img):
 
     # STEP 10: Final saturation boost for vibrant purple
     color = ImageEnhance.Color(result)
-    result = color.enhance(1.3)
+    result = color.enhance(0.8)
 
     # STEP 11: Final contrast boost for depth
     contrast = ImageEnhance.Contrast(result)
