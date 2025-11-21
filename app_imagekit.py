@@ -51,9 +51,14 @@ def apply_clarity(img, amount=42):
     return Image.fromarray(enhanced.astype(np.uint8))
 
 def apply_canva_adjustments(img):
-    # Upscale if needed
-    if img.size[0] < 1920 or img.size[1] < 1920:
-        scale_factor = max(1920 / img.size[0], 1920 / img.size[1])
+    # Limit max size to prevent memory issues on free tier
+    max_size = 1200
+    if img.size[0] > max_size or img.size[1] > max_size:
+        ratio = min(max_size / img.size[0], max_size / img.size[1])
+        new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
+    elif img.size[0] < 800 and img.size[1] < 800:
+        scale_factor = min(2.0, max(800 / img.size[0], 800 / img.size[1]))
         new_size = (int(img.size[0] * scale_factor), int(img.size[1] * scale_factor))
         img = img.resize(new_size, Image.Resampling.LANCZOS)
 
@@ -68,8 +73,8 @@ def apply_canva_adjustments(img):
     # Shadows: 30, Highlights: 11
     img = adjust_shadows_highlights(img, shadows=30, highlights=11)
 
-    # Clarity: 42 (boosted to 65 for iris)
-    img = apply_clarity(img, amount=65)
+    # Clarity: 42 (reduced to 45 for memory efficiency)
+    img = apply_clarity(img, amount=45)
 
     # Sharpness: 72 (enhanced to 2.2)
     sharpness = ImageEnhance.Sharpness(img)
@@ -107,9 +112,10 @@ def upload_to_imagekit(image, filename):
             return None
         
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=90)
+        image.save(buffer, format='JPEG', quality=85, optimize=True)
         img_bytes = buffer.getvalue()
         buffer.close()
+        del buffer
         
         if len(img_bytes) < 1000:
             print(f"✗ Image too small: {len(img_bytes)} bytes", flush=True)
@@ -176,8 +182,10 @@ def process_images(input_folder):
                 failed.append(filename)
                 continue
             
+            print(f"  - Starting adjustments...", flush=True)
             img = apply_canva_adjustments(img)
             print(f"  - Adjustments applied: {img.size}, mode: {img.mode}", flush=True)
+            gc.collect()
             
             if not img or img.size[0] == 0:
                 print(f"  ✗ Image corrupted after adjustments", flush=True)
