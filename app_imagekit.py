@@ -349,4 +349,6 @@ def gallery():
     print(f"Gallery contents: {image_gallery}")
     return render_template('gallery.html', images=image_gallery)
 
-# Gunicorn will run the app, no need for app.run()
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
