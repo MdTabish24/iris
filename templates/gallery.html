@@ -29,13 +29,16 @@
         .btn:hover { background: rgba(255,255,255,0.3); }
         .no-images { text-align: center; font-size: 24px; color: #ccc; }
         @media (max-width: 768px) {
-            .counter { top: 10px; right: 10px; font-size: 16px; padding: 8px 15px; }
-            .progress-bar { width: 250px; }
-            .controls { bottom: 40px; }
-            .btn { padding: 8px 16px; font-size: 14px; }
-            .adjustments { left: 10px; width: calc(100% - 20px); max-width: 300px; padding: 15px; }
-            .adjustments h3 { font-size: 16px; }
-            .slider-group { margin-bottom: 12px; }
+            .slideshow-container { flex-direction: column; justify-content: flex-start; padding-top: 20px; }
+            .slide { height: auto; align-items: flex-start !important; justify-content: center !important; padding-top: 10px; }
+            .slide img { max-width: 3cm !important; max-height: 2.5cm !important; width: 3cm !important; height: 2.5cm !important; object-fit: cover !important; margin: 0 auto; }
+            .counter { top: 10px; right: 10px; font-size: 14px; padding: 6px 12px; }
+            .progress-bar { display: none; }
+            .controls { bottom: 10px; gap: 10px; }
+            .btn { padding: 6px 12px; font-size: 12px; }
+            .adjustments { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); width: calc(100% - 20px); max-width: 100%; padding: 15px; top: auto; }
+            .adjustments h3 { font-size: 16px; margin-bottom: 10px; }
+            .slider-group { margin-bottom: 10px; }
             .slider-group label { font-size: 12px; }
         }
     </style>
@@ -200,13 +203,17 @@
             }
         });
         
+        // Store original image data
+        let originalImages = {};
+        let canvasCache = {};
+        
         // Image adjustment functions
         function applyFilters() {
-            const sharpness = document.getElementById('sharpness').value;
-            const clarity = document.getElementById('clarity').value;
-            const purple = document.getElementById('purple').value;
-            const brightness = document.getElementById('brightness').value;
-            const contrast = document.getElementById('contrast').value;
+            const sharpness = parseInt(document.getElementById('sharpness').value);
+            const clarity = parseInt(document.getElementById('clarity').value);
+            const purple = parseInt(document.getElementById('purple').value);
+            const brightness = parseInt(document.getElementById('brightness').value);
+            const contrast = parseInt(document.getElementById('contrast').value);
             
             // Update value displays
             document.getElementById('sharp-val').textContent = sharpness;
@@ -215,28 +222,129 @@
             document.getElementById('bright-val').textContent = brightness;
             document.getElementById('contrast-val').textContent = contrast;
             
-            // Calculate filter values
-            const contrastVal = contrast / 100;
-            const brightnessVal = brightness / 100;
-            const saturateVal = 1 + (purple / 100);
-            const hueRotateVal = purple * 0.5; // Purple tint
-            
-            // Sharpness simulation using contrast + brightness micro-adjustments
-            const sharpAdjust = 1 + (sharpness / 200);
-            
-            // Clarity simulation using saturation
-            const clarityAdjust = 1 + (clarity / 100);
-            
-            // Apply CSS filters to current active image
             const activeImg = document.querySelector('.slide.active img');
-            if (activeImg) {
-                activeImg.style.filter = `
-                    contrast(${contrastVal * sharpAdjust})
-                    brightness(${brightnessVal})
-                    saturate(${saturateVal * clarityAdjust})
-                    hue-rotate(${hueRotateVal}deg)
+            if (!activeImg) return;
+            
+            const imgSrc = activeImg.src;
+            
+            // Load original if not cached
+            if (!originalImages[imgSrc]) {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    originalImages[imgSrc] = img;
+                    processImage(img, activeImg, sharpness, clarity, purple, brightness, contrast);
+                };
+                img.src = imgSrc;
+            } else {
+                processImage(originalImages[imgSrc], activeImg, sharpness, clarity, purple, brightness, contrast);
+            }
+        }
+        
+        function processImage(sourceImg, targetImg, sharpness, clarity, purple, brightness, contrast) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = sourceImg.width || sourceImg.naturalWidth;
+            canvas.height = sourceImg.height || sourceImg.naturalHeight;
+            
+            ctx.drawImage(sourceImg, 0, 0);
+            
+            try {
+                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let data = imageData.data;
+                
+                // Apply adjustments
+                const contrastFactor = (contrast / 100);
+                const brightnessFactor = (brightness - 100) / 100;
+                const clarityFactor = clarity / 100;
+                const purpleFactor = purple / 100;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i + 1];
+                    let b = data[i + 2];
+                    
+                    // Brightness
+                    r += brightnessFactor * 255;
+                    g += brightnessFactor * 255;
+                    b += brightnessFactor * 255;
+                    
+                    // Contrast
+                    r = ((r / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    g = ((g / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    b = ((b / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    
+                    // Clarity (increase saturation)
+                    if (clarity !== 0) {
+                        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = gray + (r - gray) * (1 + clarityFactor);
+                        g = gray + (g - gray) * (1 + clarityFactor);
+                        b = gray + (b - gray) * (1 + clarityFactor);
+                    }
+                    
+                    // Purple filter
+                    if (purple !== 0) {
+                        r = r * (1 + purpleFactor * 0.15) + purpleFactor * 20;
+                        g = g * (1 - purpleFactor * 0.1);
+                        b = b * (1 + purpleFactor * 0.25) + purpleFactor * 30;
+                    }
+                    
+                    // Clamp values
+                    data[i] = Math.max(0, Math.min(255, r));
+                    data[i + 1] = Math.max(0, Math.min(255, g));
+                    data[i + 2] = Math.max(0, Math.min(255, b));
+                }
+                
+                // Sharpness (unsharp mask)
+                if (sharpness !== 0) {
+                    imageData = applySharpen(imageData, sharpness / 50);
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                targetImg.src = canvas.toDataURL('image/jpeg', 0.95);
+            } catch(e) {
+                console.log('CORS issue, using CSS filters fallback');
+                // Fallback to CSS filters if CORS blocks canvas
+                targetImg.style.filter = `
+                    contrast(${contrast/100}) 
+                    brightness(${brightness/100}) 
+                    saturate(${1 + clarity/100})
                 `;
             }
+        }
+        
+        function applySharpen(imageData, amount) {
+            const data = imageData.data;
+            const w = imageData.width;
+            const h = imageData.height;
+            const output = new Uint8ClampedArray(data);
+            
+            // Sharpening kernel
+            const kernel = [
+                0, -amount, 0,
+                -amount, 1 + 4 * amount, -amount,
+                0, -amount, 0
+            ];
+            
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    for (let c = 0; c < 3; c++) {
+                        let sum = 0;
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                                const kidx = (ky + 1) * 3 + (kx + 1);
+                                sum += data[idx] * kernel[kidx];
+                            }
+                        }
+                        const idx = (y * w + x) * 4 + c;
+                        output[idx] = Math.max(0, Math.min(255, sum));
+                    }
+                }
+            }
+            
+            return new ImageData(output, w, h);
         }
         
         function resetFilters() {
@@ -245,6 +353,20 @@
             document.getElementById('purple').value = 0;
             document.getElementById('brightness').value = 100;
             document.getElementById('contrast').value = 100;
+            
+            // Restore original image
+            const activeImg = document.querySelector('.slide.active img');
+            if (activeImg && originalImages[activeImg.src]) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = originalImages[activeImg.src];
+                canvas.width = img.width || img.naturalWidth;
+                canvas.height = img.height || img.naturalHeight;
+                ctx.drawImage(img, 0, 0);
+                activeImg.src = canvas.toDataURL('image/jpeg', 0.95);
+            }
+            activeImg.style.filter = 'none';
+            
             applyFilters();
         }
         
