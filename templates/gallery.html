@@ -10,7 +10,17 @@
         .slideshow-container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
         .slide { display: none; width: 100%; height: 100%; position: relative; }
         .slide.active { display: flex; align-items: center; justify-content: center; }
-        .slide img { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
+        .slide img { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,255,255,0.2); transition: filter 0.1s; }
+        .adjustments { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; width: 250px; }
+        .adjustments h3 { margin-bottom: 15px; font-size: 18px; color: #667eea; }
+        .slider-group { margin-bottom: 15px; }
+        .slider-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #ccc; }
+        .slider-group .value { float: right; color: #667eea; font-weight: bold; }
+        .slider-group input[type="range"] { width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2); outline: none; -webkit-appearance: none; }
+        .slider-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer; }
+        .slider-group input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer; border: none; }
+        .reset-btn { width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        .reset-btn:hover { background: rgba(255,255,255,0.2); }
         .counter { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-size: 18px; }
         .progress-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
         .progress { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.1s linear; }
@@ -23,6 +33,10 @@
             .progress-bar { width: 250px; }
             .controls { bottom: 40px; }
             .btn { padding: 8px 16px; font-size: 14px; }
+            .adjustments { left: 10px; width: calc(100% - 20px); max-width: 300px; padding: 15px; }
+            .adjustments h3 { font-size: 16px; }
+            .slider-group { margin-bottom: 12px; }
+            .slider-group label { font-size: 12px; }
         }
     </style>
 </head>
@@ -35,9 +49,40 @@
             
             {% for image in images %}
             <div class="slide {% if loop.first %}active{% endif %}">
-                <img src="{{ image.url }}" alt="{{ image.filename }}">
+                <img src="{{ image.url }}" alt="{{ image.filename }}" class="adjustable-img">
             </div>
             {% endfor %}
+            
+            <div class="adjustments">
+                <h3>🎨 Adjustments</h3>
+                
+                <div class="slider-group">
+                    <label>Sharpness <span class="value" id="sharp-val">0</span></label>
+                    <input type="range" min="-50" max="50" value="0" id="sharpness" oninput="applyFilters()">
+                </div>
+                
+                <div class="slider-group">
+                    <label>Clarity <span class="value" id="clarity-val">0</span></label>
+                    <input type="range" min="-50" max="50" value="0" id="clarity" oninput="applyFilters()">
+                </div>
+                
+                <div class="slider-group">
+                    <label>Purple <span class="value" id="purple-val">0</span></label>
+                    <input type="range" min="-50" max="50" value="0" id="purple" oninput="applyFilters()">
+                </div>
+                
+                <div class="slider-group">
+                    <label>Brightness <span class="value" id="bright-val">100</span></label>
+                    <input type="range" min="50" max="150" value="100" id="brightness" oninput="applyFilters()">
+                </div>
+                
+                <div class="slider-group">
+                    <label>Contrast <span class="value" id="contrast-val">100</span></label>
+                    <input type="range" min="50" max="150" value="100" id="contrast" oninput="applyFilters()">
+                </div>
+                
+                <button class="reset-btn" onclick="resetFilters()">↺ Reset All</button>
+            </div>
             
             <div class="progress-bar">
                 <div class="progress" id="progress"></div>
@@ -128,6 +173,7 @@
         if (totalSlides > 1) {
             startAutoplay();
         }
+        applyFilters();
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -153,6 +199,61 @@
                 else previousSlide();
             }
         });
+        
+        // Image adjustment functions
+        function applyFilters() {
+            const sharpness = document.getElementById('sharpness').value;
+            const clarity = document.getElementById('clarity').value;
+            const purple = document.getElementById('purple').value;
+            const brightness = document.getElementById('brightness').value;
+            const contrast = document.getElementById('contrast').value;
+            
+            // Update value displays
+            document.getElementById('sharp-val').textContent = sharpness;
+            document.getElementById('clarity-val').textContent = clarity;
+            document.getElementById('purple-val').textContent = purple;
+            document.getElementById('bright-val').textContent = brightness;
+            document.getElementById('contrast-val').textContent = contrast;
+            
+            // Calculate filter values
+            const contrastVal = contrast / 100;
+            const brightnessVal = brightness / 100;
+            const saturateVal = 1 + (purple / 100);
+            const hueRotateVal = purple * 0.5; // Purple tint
+            
+            // Sharpness simulation using contrast + brightness micro-adjustments
+            const sharpAdjust = 1 + (sharpness / 200);
+            
+            // Clarity simulation using saturation
+            const clarityAdjust = 1 + (clarity / 100);
+            
+            // Apply CSS filters to current active image
+            const activeImg = document.querySelector('.slide.active img');
+            if (activeImg) {
+                activeImg.style.filter = `
+                    contrast(${contrastVal * sharpAdjust})
+                    brightness(${brightnessVal})
+                    saturate(${saturateVal * clarityAdjust})
+                    hue-rotate(${hueRotateVal}deg)
+                `;
+            }
+        }
+        
+        function resetFilters() {
+            document.getElementById('sharpness').value = 0;
+            document.getElementById('clarity').value = 0;
+            document.getElementById('purple').value = 0;
+            document.getElementById('brightness').value = 100;
+            document.getElementById('contrast').value = 100;
+            applyFilters();
+        }
+        
+        // Apply filters when slide changes
+        const originalShowSlide = showSlide;
+        showSlide = function(n) {
+            originalShowSlide(n);
+            setTimeout(applyFilters, 50);
+        };
     </script>
 </body>
 </html>
