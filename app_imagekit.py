@@ -9,6 +9,8 @@ import requests
 from dotenv import load_dotenv
 import threading
 import gc
+from datetime import datetime
+from collections import defaultdict
 
 load_dotenv()
 
@@ -23,8 +25,9 @@ IMAGEKIT_URL_ENDPOINT = os.getenv('IMAGEKIT_URL_ENDPOINT')
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Store image URLs
-image_gallery = []
+# Store image URLs by date
+image_gallery_by_date = defaultdict(list)
+current_upload_date = None
 
 def adjust_shadows_highlights(img, shadows=50, highlights=5):
     """Enhanced shadows and reduced highlights for darker, richer look"""
@@ -122,7 +125,8 @@ def apply_canva_adjustments(img):
     return result
 
 def upload_to_imagekit(image, filename):
-    """Upload processed image to ImageKit"""
+    """Upload processed image to ImageKit in date-wise folder"""
+    global current_upload_date
     try:
         if not IMAGEKIT_PRIVATE_KEY:
             print("ImageKit credentials missing", flush=True)
@@ -153,7 +157,7 @@ def upload_to_imagekit(image, filename):
 
         data = {
             'fileName': f"enhanced_{filename}",
-            'folder': '/iris/'
+            'folder': f'/iris/{current_upload_date}/'
         }
 
         auth = (IMAGEKIT_PRIVATE_KEY + ':', '')
@@ -181,10 +185,11 @@ def upload_to_imagekit(image, filename):
 
 def process_images(input_folder):
     """Process all images in folder with enhanced adjustments"""
-    global image_gallery, processing_status
-    image_gallery = []
-
+    global image_gallery_by_date, current_upload_date, processing_status
+    
+    current_upload_date = datetime.now().strftime('%Y-%m-%d')
     print(f"\n=== Starting to process images from: {input_folder} ===", flush=True)
+    print(f"Upload date: {current_upload_date}", flush=True)
     processed = []
     failed = []
 
@@ -216,7 +221,7 @@ def process_images(input_folder):
 
             img_url = upload_to_imagekit(img, filename)
             if img_url:
-                image_gallery.append({'filename': filename, 'url': img_url})
+                image_gallery_by_date[current_upload_date].append({'filename': filename, 'url': img_url})
                 processed.append(filename)
                 processing_status['processed'] = len(processed)
                 print(f"  ✓ SUCCESS: {filename} -> {img_url}", flush=True)
@@ -236,8 +241,7 @@ def process_images(input_folder):
     print(f"\n=== FINAL RESULTS ===", flush=True)
     print(f"Processed: {len(processed)}", flush=True)
     print(f"Failed: {len(failed)}", flush=True)
-    print(f"Gallery has {len(image_gallery)} images", flush=True)
-    print(f"Gallery contents: {image_gallery}", flush=True)
+    print(f"Gallery has {len(image_gallery_by_date[current_upload_date])} images for {current_upload_date}", flush=True)
     return processed
 
 @app.route('/')
@@ -340,9 +344,16 @@ def health():
 @app.route('/gallery')
 def gallery():
     print(f"\n=== GALLERY ROUTE CALLED ===")
-    print(f"image_gallery has {len(image_gallery)} images")
-    print(f"Gallery contents: {image_gallery}")
-    return render_template('gallery.html', images=image_gallery)
+    sorted_dates = sorted(image_gallery_by_date.keys(), reverse=True)
+    print(f"Dates with images: {sorted_dates}")
+    return render_template('gallery.html', dates=sorted_dates, gallery_by_date=dict(image_gallery_by_date))
+
+@app.route('/gallery/<date>')
+def gallery_date(date):
+    print(f"\n=== GALLERY DATE ROUTE: {date} ===")
+    images = image_gallery_by_date.get(date, [])
+    print(f"Found {len(images)} images for {date}")
+    return render_template('slideshow.html', images=images, date=date)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

@@ -3,265 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Images Gallery</title>
+    <title>Gallery - Date Folders</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #000; color: white; overflow: hidden; }
-        .slideshow-container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .slide { display: none; width: 100%; height: 100%; position: relative; }
-        .slide.active { display: flex; align-items: center; justify-content: center; }
-        .slide img { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,255,255,0.2); transition: filter 0.1s; }
-        .adjustments { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; width: 250px; }
-        .adjustments h3 { margin-bottom: 15px; font-size: 18px; color: #667eea; }
-        .slider-group { margin-bottom: 15px; }
-        .slider-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #ccc; }
-        .slider-group .value { float: right; color: #667eea; font-weight: bold; }
-        .slider-group input[type="range"] { width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2); outline: none; -webkit-appearance: none; }
-        .slider-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer; }
-        .slider-group input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer; border: none; }
-        .reset-btn { width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer; margin-top: 10px; }
-        .reset-btn:hover { background: rgba(255,255,255,0.2); }
-        .counter { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-size: 18px; }
-        .progress-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
-        .progress { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.1s linear; }
-        .controls { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
-        .btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-size: 16px; transition: all 0.3s; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 40px; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .folder-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 15px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; border: 2px solid rgba(255,255,255,0.2); }
+        .folder-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .folder-icon { font-size: 60px; margin-bottom: 15px; }
+        .folder-date { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .folder-count { font-size: 14px; opacity: 0.8; }
+        .no-folders { text-align: center; margin-top: 100px; }
+        .no-folders p { font-size: 24px; margin-bottom: 20px; }
+        .btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; display: inline-block; transition: all 0.3s; }
         .btn:hover { background: rgba(255,255,255,0.3); }
-        .no-images { text-align: center; font-size: 24px; color: #ccc; }
-        @media (max-width: 768px) {
-            .slideshow-container { flex-direction: column; justify-content: flex-start; padding-top: 20px; }
-            .slide { height: auto; align-items: flex-start !important; justify-content: center !important; padding-top: 10px; }
-            .slide img { max-width: 3cm !important; max-height: 2.5cm !important; width: 3cm !important; height: 2.5cm !important; object-fit: cover !important; margin: 0 auto; }
-            .counter { top: 10px; right: 10px; font-size: 14px; padding: 6px 12px; }
-            .progress-bar { display: none; }
-            .controls { bottom: 10px; gap: 10px; }
-            .btn { padding: 6px 12px; font-size: 12px; }
-            .adjustments { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); width: calc(100% - 20px); max-width: 100%; padding: 15px; top: auto; }
-            .adjustments h3 { font-size: 16px; margin-bottom: 10px; }
-            .slider-group { margin-bottom: 10px; }
-            .slider-group label { font-size: 12px; }
-        }
     </style>
 </head>
 <body>
-    <div class="slideshow-container">
-        {% if images %}
-            <div class="counter">
-                <span id="current">1</span> / {{ images|length }}
-            </div>
-            
-            {% for image in images %}
-            <div class="slide {% if loop.first %}active{% endif %}">
-                <img src="{{ image.url }}" alt="{{ image.filename }}" class="adjustable-img">
-            </div>
-            {% endfor %}
-            
-            <div class="adjustments">
-                <h3>🎨 Adjustments</h3>
-                
-                <div class="slider-group">
-                    <label>Sharpness <span class="value" id="sharp-val">0</span></label>
-                    <input type="range" min="-50" max="50" value="0" id="sharpness" oninput="applyFilters()">
+    <div class="container">
+        <h1>📁 Gallery - Date Folders</h1>
+        
+        {% if dates %}
+            <div class="folders">
+                {% for date in dates %}
+                <div class="folder-card" onclick="window.location.href='/gallery/{{ date }}'">
+                    <div class="folder-icon">📂</div>
+                    <div class="folder-date">{{ date }}</div>
+                    <div class="folder-count">{{ gallery_by_date[date]|length }} images</div>
                 </div>
-                
-                <div class="slider-group">
-                    <label>Clarity <span class="value" id="clarity-val">0</span></label>
-                    <input type="range" min="-50" max="50" value="0" id="clarity" oninput="applyFilters()">
-                </div>
-                
-                <div class="slider-group">
-                    <label>Purple <span class="value" id="purple-val">0</span></label>
-                    <input type="range" min="-50" max="50" value="0" id="purple" oninput="applyFilters()">
-                </div>
-                
-                <div class="slider-group">
-                    <label>Brightness <span class="value" id="bright-val">100</span></label>
-                    <input type="range" min="50" max="150" value="100" id="brightness" oninput="applyFilters()">
-                </div>
-                
-                <div class="slider-group">
-                    <label>Contrast <span class="value" id="contrast-val">100</span></label>
-                    <input type="range" min="50" max="150" value="100" id="contrast" oninput="applyFilters()">
-                </div>
-                
-                <button class="reset-btn" onclick="resetFilters()">↺ Reset All</button>
-            </div>
-            
-            <div class="progress-bar">
-                <div class="progress" id="progress"></div>
-            </div>
-            
-            <div class="controls">
-                <button class="btn" onclick="previousSlide()">◀ Previous</button>
-                <button class="btn" onclick="toggleAutoplay()" id="playBtn">⏸ Pause</button>
-                <button class="btn" onclick="nextSlide()">Next ▶</button>
+                {% endfor %}
             </div>
         {% else %}
-            <div class="no-images">
-                <p>📷 No enhanced images found</p>
-                <br>
+            <div class="no-folders">
+                <p>📷 No folders found</p>
                 <a href="/" class="btn">Upload Images</a>
             </div>
         {% endif %}
     </div>
-
-    <script>
-        // Store original image data - DECLARE FIRST
-        let originalImages = {};
-        let canvasCache = {};
-        
-        let currentSlide = 0;
-        let autoplay = true;
-        let interval;
-        let progressInterval;
-        const slides = document.querySelectorAll('.slide');
-        const totalSlides = slides.length;
-        const slideTime = 10000; // 10 seconds
-
-        function showSlide(n) {
-            slides.forEach(slide => slide.classList.remove('active'));
-            currentSlide = (n + totalSlides) % totalSlides;
-            slides[currentSlide].classList.add('active');
-            document.getElementById('current').textContent = currentSlide + 1;
-            resetProgress();
-        }
-
-        function nextSlide() {
-            showSlide(currentSlide + 1);
-        }
-
-        function previousSlide() {
-            showSlide(currentSlide - 1);
-        }
-
-        function resetProgress() {
-            const progress = document.getElementById('progress');
-            progress.style.width = '0%';
-            clearInterval(progressInterval);
-            
-            if (autoplay && totalSlides > 1) {
-                let width = 0;
-                progressInterval = setInterval(() => {
-                    width += 100 / (slideTime / 100);
-                    progress.style.width = width + '%';
-                    if (width >= 100) {
-                        clearInterval(progressInterval);
-                    }
-                }, 100);
-            }
-        }
-
-        function startAutoplay() {
-            if (totalSlides <= 1) return;
-            interval = setInterval(nextSlide, slideTime);
-            resetProgress();
-        }
-
-        function stopAutoplay() {
-            clearInterval(interval);
-            clearInterval(progressInterval);
-            document.getElementById('progress').style.width = '0%';
-        }
-
-        function toggleAutoplay() {
-            const btn = document.getElementById('playBtn');
-            if (autoplay) {
-                autoplay = false;
-                stopAutoplay();
-                btn.textContent = '▶ Play';
-            } else {
-                autoplay = true;
-                startAutoplay();
-                btn.textContent = '⏸ Pause';
-            }
-        }
-
-        // Initialize
-        if (totalSlides > 1) {
-            startAutoplay();
-        }
-
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') previousSlide();
-            if (e.key === 'ArrowRight') nextSlide();
-            if (e.key === ' ') {
-                e.preventDefault();
-                toggleAutoplay();
-            }
-        });
-
-        // Touch controls for mobile
-        let touchStartX = 0;
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-
-        document.addEventListener('touchend', (e) => {
-            const touchEndX = e.changedTouches[0].clientX;
-            const diff = touchStartX - touchEndX;
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) nextSlide();
-                else previousSlide();
-            }
-        });
-        
-        // Image adjustment functions
-        function applyFilters() {
-            const sharpness = parseInt(document.getElementById('sharpness').value);
-            const clarity = parseInt(document.getElementById('clarity').value);
-            const purple = parseInt(document.getElementById('purple').value);
-            const brightness = parseInt(document.getElementById('brightness').value);
-            const contrast = parseInt(document.getElementById('contrast').value);
-            
-            // Update value displays
-            document.getElementById('sharp-val').textContent = sharpness;
-            document.getElementById('clarity-val').textContent = clarity;
-            document.getElementById('purple-val').textContent = purple;
-            document.getElementById('bright-val').textContent = brightness;
-            document.getElementById('contrast-val').textContent = contrast;
-            
-            const activeImg = document.querySelector('.slide.active img');
-            if (!activeImg) return;
-            
-            // Use CSS filters for smooth, reversible adjustments
-            const brightnessVal = brightness / 100;
-            const contrastVal = contrast / 100;
-            const saturateVal = 1 + (clarity / 100);
-            const hueRotate = purple * 0.5; // Purple shift
-            const sharpVal = 1 + (sharpness / 100);
-            
-            activeImg.style.filter = `
-                brightness(${brightnessVal})
-                contrast(${contrastVal})
-                saturate(${saturateVal})
-                hue-rotate(${hueRotate}deg)
-            `;
-        }
-        
-
-        
-        function resetFilters() {
-            document.getElementById('sharpness').value = 0;
-            document.getElementById('clarity').value = 0;
-            document.getElementById('purple').value = 0;
-            document.getElementById('brightness').value = 100;
-            document.getElementById('contrast').value = 100;
-            
-            const activeImg = document.querySelector('.slide.active img');
-            if (activeImg) {
-                activeImg.style.filter = 'none';
-            }
-            
-            applyFilters();
-        }
-        
-        // Apply filters when slide changes
-        const originalShowSlide = showSlide;
-        showSlide = function(n) {
-            originalShowSlide(n);
-            setTimeout(applyFilters, 50);
-        };
-    </script>
 </body>
 </html>
