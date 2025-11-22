@@ -26,44 +26,49 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # Store image URLs
 image_gallery = []
 
-def adjust_shadows_highlights(img, shadows=50, highlights=5):
-    """Enhanced shadows and reduced highlights for darker, richer look"""
+def adjust_shadows_highlights(img, shadows=30, highlights=10):
+    """Canva-style shadows/highlights - relative to midpoint (0)"""
     arr = np.array(img, dtype=np.float64) / 255.0
-
-    # Boost shadows more
-    shadow_mask = 1.0 - arr
-    shadow_boost = shadow_mask ** 2
-    arr = arr + (shadow_boost * (shadows / 100.0) * 0.4)
-
-    # Reduce highlights less
-    highlight_mask = arr
-    highlight_adjust = highlight_mask ** 2
-    arr = arr + (highlight_adjust * (highlights / 100.0) * 0.05)
-
+    
+    # Shadows: lift dark areas gently (0 = no change)
+    if shadows != 0:
+        shadow_mask = (1.0 - arr) ** 1.5
+        arr = arr + (shadow_mask * (shadows / 100.0) * 0.15)
+    
+    # Highlights: reduce bright areas gently (0 = no change)
+    if highlights != 0:
+        highlight_mask = arr ** 1.5
+        arr = arr - (highlight_mask * (highlights / 100.0) * 0.08)
+    
     arr = np.clip(arr, 0, 1)
     return Image.fromarray((arr * 255).astype(np.uint8))
 
-def apply_clarity(img, amount=60):
-    """Enhanced clarity for more detail"""
+def apply_clarity(img, amount=50):
+    """Canva-style clarity - controlled detail enhancement (0 = no change)"""
+    if amount == 0:
+        return img
+    
     arr = np.array(img, dtype=np.float64)
-    blurred1 = np.zeros_like(arr)
-    blurred2 = np.zeros_like(arr)
-
+    blurred = np.zeros_like(arr)
+    
+    # Single gentle blur to avoid noise amplification
     for i in range(3):
-        blurred1[:,:,i] = gaussian_filter(arr[:,:,i], sigma=1.5, mode='reflect')
-        blurred2[:,:,i] = gaussian_filter(arr[:,:,i], sigma=3.0, mode='reflect')
-
-    detail1 = arr - blurred1
-    detail2 = arr - blurred2
-    enhanced = arr + detail1 * (amount / 100.0) * 1.5 + detail2 * (amount / 100.0) * 0.5
+        blurred[:,:,i] = gaussian_filter(arr[:,:,i], sigma=2.5, mode='reflect')
+    
+    # Extract mid-frequency details only
+    detail = arr - blurred
+    
+    # Apply with noise suppression
+    strength = (amount / 100.0) * 0.6
+    enhanced = arr + detail * strength
     enhanced = np.clip(enhanced, 0, 255)
-
+    
     return Image.fromarray(enhanced.astype(np.uint8))
 
 def apply_canva_adjustments(img):
-    """Complete enhancement function - matches desired purple eye output"""
-
-    # Limit max size to prevent memory issues on free tier
+    """Canva-style adjustments - smooth, no noise, reversible to original at 0"""
+    
+    # Resize for processing
     max_size = 1200
     if img.size[0] > max_size or img.size[1] > max_size:
         ratio = min(max_size / img.size[0], max_size / img.size[1])
@@ -73,53 +78,38 @@ def apply_canva_adjustments(img):
         scale_factor = min(2.0, max(800 / img.size[0], 800 / img.size[1]))
         new_size = (int(img.size[0] * scale_factor), int(img.size[1] * scale_factor))
         img = img.resize(new_size, Image.Resampling.LANCZOS)
-
-    # STEP 1: INCREASE Contrast (reversed from -67 to strong boost)
-    contrast = ImageEnhance.Contrast(img)
-    img = contrast.enhance(1.0 - (30/200))  # Strong contrast for dark, rich look
-
-    # STEP 2: REDUCE Brightness (reversed from +85 to darker)
-    brightness = ImageEnhance.Brightness(img)
-    img = brightness.enhance(0.90)  # Slightly darker overall
-    # STEP 3: Enhanced Shadows & Reduced Highlights
-    img = adjust_shadows_highlights(img, shadows=30, highlights=10)
-
-    # STEP 4: High Clarity for detail
-    img = apply_clarity(img, amount=45)
-
-    # STEP 5: Strong Sharpness
+    
+    # Step 1: Sharpness (75 in Canva = 1.75 enhance)
     sharpness = ImageEnhance.Sharpness(img)
-    img = sharpness.enhance(1.5)
-
-
-
-    # STEP 8: Keep more saturation (0.7 instead of 0.2)
-    color = ImageEnhance.Color(img)
-    img = color.enhance(0.2)
-
-    # STEP 9: Apply strong purple/violet overlay
+    img = sharpness.enhance(1.0 + (75/100.0))
+    
+    # Step 2: Clarity (50 = moderate detail boost)
+    img = apply_clarity(img, amount=50)
+    
+    # Step 3: Shadows (30 = lift dark areas)
+    # Step 4: Highlights (10 = reduce bright areas)
+    img = adjust_shadows_highlights(img, shadows=30, highlights=10)
+    
+    # Step 5: Contrast (-95 in Canva = 0.05 enhance, very low contrast)
+    contrast = ImageEnhance.Contrast(img)
+    img = contrast.enhance(1.0 + (-95/100.0))
+    
+    # Step 6: Brightness (90 in Canva = 1.90 enhance)
+    brightness = ImageEnhance.Brightness(img)
+    img = brightness.enhance(1.0 + (90/100.0))
+    
+    # Step 7: Temperature (20 = warm shift)
     arr = np.array(img, dtype=np.float32)
-
-    # Enhanced purple tint - more aggressive
-    arr[:,:,0] = np.minimum(arr[:,:,0] * 1.15 + 40, 255)  # Red boost
-    arr[:,:,1] = arr[:,:,1] * 0.75  # Green reduce for purple
-    arr[:,:,2] = np.minimum(arr[:,:,2] * 1.25 + 60, 255)  # Blue boost strong
-
+    temp_shift = 20 / 100.0
+    arr[:,:,0] = np.minimum(arr[:,:,0] * (1.0 + temp_shift * 0.3), 255)  # Red
+    arr[:,:,2] = arr[:,:,2] * (1.0 - temp_shift * 0.2)  # Blue
     arr = np.clip(arr, 0, 255)
-    result = Image.fromarray(arr.astype(np.uint8))
-
-    # STEP 10: Final saturation boost for vibrant purple
-    color = ImageEnhance.Color(result)
-    result = color.enhance(0.8)
-
-    # STEP 11: Final contrast boost for depth
-    contrast = ImageEnhance.Contrast(result)
-    result = contrast.enhance(1.2)
-
+    img = Image.fromarray(arr.astype(np.uint8))
+    
     del arr
     gc.collect()
-
-    return result
+    
+    return img
 
 def upload_to_imagekit(image, filename):
     """Upload processed image to ImageKit"""
